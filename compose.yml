@@ -1,0 +1,67 @@
+# เครื่องลูกค้าจำลอง = manager ใน container · ใช้ได้สามแบบ (ดู README.md)
+#   แบบ 1 center ตัวอย่าง / แบบ 2 center ของคุณเอง:   docker compose up --build machine
+#   แบบ 3 plugin ที่ยังไม่ปล่อย (registry ในเครื่อง):  docker compose --profile local up --build machine-local
+# ค่าทั้งหมดอ่านจาก .env (คัดลอกจาก .env.example)
+
+x-machine: &machine
+  build:
+    context: .
+    dockerfile: machine/Dockerfile
+    args:
+      MANAGER_VERSION: ${MANAGER_VERSION:-}  # ว่าง = ตาม channel
+      CHANNEL: ${MANAGER_CHANNEL:-stable}
+  restart: unless-stopped
+
+x-machine-env: &machine-env
+  CC_ADDR: ${CENTER_ADDR:-host.docker.internal:7443}
+  CC_INSECURE: ${INSECURE:-false} # true ได้เฉพาะ center ที่ไม่เปิด TLS (center ตัวอย่าง) · ใช้ในเครื่องเท่านั้น
+  CC_CA: ${CA:-}                  # CA ส่วนตัวของ center เช่น /certs/ca.pem (วางไฟล์ใน ./certs) · ว่าง = CA ของระบบ
+  CC_TOKEN: ${TOKEN:-}            # ใช้ครั้งแรกครั้งเดียว enroll แล้วไม่ต้องใส่อีก (ตัวตนอยู่ใน volume)
+
+services:
+  # แบบ 1 และ 2: plugin มาจาก registry จริงบน GitHub
+  machine:
+    <<: *machine
+    # host.docker.internal = เครื่องที่รัน docker (Docker Desktop มีให้เอง · Linux ต้องมีบรรทัดนี้)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      <<: *machine-env
+      CC_RELEASE_URL: ${REGISTRY:-https://raw.githubusercontent.com/MaiWittawat/edgeconnector-registry/main}
+      CC_TRUSTED_KEYS: ${TRUSTED_KEYS:-lab-2026=gK3QtGj9wHs/Vm07udIW31CySE3MVP5e/3dUj0aIXV8=}
+    volumes:
+      - manager-data:/data
+      - ./certs:/certs:ro
+
+  # แบบ 3: registry ในเครื่อง (ไฟล์จาก scripts/package-plugin.sh ใน ./data/registry)
+  # manager ยอม http:// เฉพาะ 127.0.0.1 / localhost จึงให้ machine-local ใช้ network เดียวกับ registry
+  # แล้วโหลดที่ http://127.0.0.1:8000 · เครื่องคุณเห็น registry ที่ http://127.0.0.1:8000 เหมือนกัน (ให้ center ตัวอย่างแสดงรายการ plugin)
+  registry:
+    profiles: [local]
+    image: python:3.13-alpine
+    command: ["python3", "-m", "http.server", "8000", "--directory", "/registry"]
+    volumes:
+      - ./data/registry:/registry:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+    extra_hosts: # network ของ machine-local เป็นของ registry จึงตั้งที่นี่
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  machine-local:
+    <<: *machine
+    profiles: [local]
+    network_mode: "service:registry"
+    depends_on:
+      - registry
+    environment:
+      <<: *machine-env
+      CC_RELEASE_URL: http://127.0.0.1:8000
+      CC_TRUSTED_KEYS: ${LOCAL_TRUSTED_KEYS:-} # บรรทัดที่ scripts/package-plugin.sh พิมพ์ให้
+    volumes:
+      - manager-data-local:/data
+      - ./certs:/certs:ro
+
+volumes:
+  manager-data:
+  manager-data-local:
