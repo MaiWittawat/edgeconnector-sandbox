@@ -100,7 +100,7 @@ docker compose --profile local up --build machine-local
 | version | ไม่ตั้ง `MANAGER_VERSION` = ตาม channel `stable` ของ registry ณ ตอน build · ล็อก version ด้วย `MANAGER_VERSION=1.1.0` |
 | ได้ตัวล่าสุด | build ใหม่: `docker compose build --no-cache machine` (Docker cache ชั้นที่โหลด manager ไว้) |
 | อัปเดตจาก center | ทำไม่ได้: `manager.update` ต้องมีโฟลเดอร์ที่ `install-manager.sh` สร้าง · เปลี่ยน version = build image ใหม่ |
-| ตัวตน | อยู่ใน volume `manager-data` (แบบ 3: `manager-data-local`) · enroll ครั้งแรกด้วย `TOKEN` แล้วไม่ต้องใส่อีก · ล้างแล้วเริ่มใหม่: `docker compose down -v` |
+| ตัวตน | อยู่ใน volume `manager-data` (แบบ 3: `manager-data-local`) พร้อม `machine-id` ของเครื่อง · enroll ครั้งแรกด้วย `TOKEN` แล้วไม่ต้องใส่อีก · build image ใหม่หรือสร้าง container ใหม่ก็ยังเป็นเครื่องเดิม · ล้างแล้วเริ่มใหม่: `docker compose down -v` |
 | ลายเซ็น | image ตรวจ sha256 และลายเซ็น Ed25519 ของ manager ด้วย `machine/verify` (stdlib ล้วน) · ไม่ผ่าน = build ล้ม |
 
 ## เลิกใช้

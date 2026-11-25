@@ -4,7 +4,8 @@
 # build จาก root ของ repo: docker build -f machine/Dockerfile .   (หรือ docker compose build)
 #
 # version ของ manager:
-#   ไม่ตั้ง MANAGER_VERSION = อ่านจาก channel (ค่าเริ่มต้น stable) ของ registry → ได้ตัว stable ล่าสุดทุกครั้งที่ build
+#   ไม่ตั้ง MANAGER_VERSION = อ่านจาก channel (ค่าเริ่มต้น stable) ของ registry ณ ตอน build
+#   Docker cache ชั้นที่โหลด manager ไว้ ถ้า channel ขยับแล้วต้อง build --no-cache จึงได้ตัวใหม่
 #   ตั้ง --build-arg MANAGER_VERSION=1.1.0 = ใช้ version นั้น
 # manager ใน container อัปเดตตัวเองจาก center ไม่ได้ (manager.update ต้องมี -self-dir ที่ install-manager.sh สร้าง)
 # เปลี่ยน version = build image ใหม่: docker compose build --no-cache
@@ -42,14 +43,17 @@ RUN set -e; \
 
 # ── ขั้น 2: image ที่ใช้รัน ───────────────────────────────────
 FROM alpine:3
+# /etc/machine-id ชี้ไปที่ไฟล์ใน volume /data ซึ่ง entrypoint.sh สร้างตอนเริ่มครั้งแรก (เหตุผลอยู่ในไฟล์นั้น)
 RUN apk add --no-cache ca-certificates \
  && adduser -D -u 10001 edge \
  && mkdir -p /data /run/ec \
- && chown edge /data /run/ec
+ && chown edge /data /run/ec \
+ && ln -sf /data/machine-id /etc/machine-id
 COPY --from=fetch /dl/bin/manager /usr/local/bin/manager
+COPY machine/entrypoint.sh /usr/local/bin/entrypoint.sh
 USER edge
 
 # flag ทุกตัวตั้งผ่าน env CC_<NAME> ได้ (ดู compose.yml) · -run-dir สั้น ๆ เพราะ path ของ unix socket ยาวได้จำกัด
 ENV CC_DATA=/data CC_RUN_DIR=/run/ec
 VOLUME /data
-ENTRYPOINT ["manager"]
+ENTRYPOINT ["entrypoint.sh"]
