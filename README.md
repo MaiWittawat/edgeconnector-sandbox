@@ -4,7 +4,7 @@
 
 | ส่วน | คืออะไร |
 |---|---|
-| `center/` | center ตัวอย่าง ใช้แค่ `connectorserver`, `store/open` และ `ui` · มี Call `dnc.check` ที่ต้องมี scope `dnc:read` · มีหน้าจัดการที่ `/ui/` และ admin HTTP ที่ `/admin/` |
+| `center/` | center ตัวอย่าง ใช้แค่ `connectorserver`, `store/open` และ `ui` · มี Call `dnc.check` ที่ต้องมี scope `dnc:read` และ log Event `job.done` (คู่กับ plugin `demo` ใน edgeconnector-plugin) · มีหน้าจัดการที่ `/ui/`, admin HTTP ที่ `/admin/` และ `POST /admin/connectors/{id}/notify` ไว้ส่ง Notify |
 | `machine/` | เครื่องลูกค้าจำลอง (Docker image): โหลด manager จาก registry ตาม channel (ค่าเริ่มต้น `stable`) แล้วตรวจลายเซ็นก่อนใส่ image |
 | `compose.yml` | รันเครื่องลูกค้าจำลองได้สามแบบ (ด้านล่าง) |
 | `scripts/package-plugin.sh` | build plugin แล้วเซ็นลง registry ในเครื่องด้วย key ทิ้ง (แบบ 3) |

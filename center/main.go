@@ -11,6 +11,7 @@ package main
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"flag"
 	"log"
@@ -61,6 +62,13 @@ func main() {
 		return []byte("clean"), nil
 	}, connectorserver.RequireScope("dnc:read"))
 
+	// Event ที่ plugin demo ส่งขึ้นมาเมื่อทำ Command job.run เสร็จ · type ที่ไม่มี handler ก็ถูกเก็บอยู่แล้ว
+	// handler นี้แค่ log ให้เห็น (center จริงบันทึกผลงาน และกันซ้ำด้วย ConnectorID+Seq หรือ job_id)
+	srv.RegisterEvent("job.done", func(ctx context.Context, ev connectorserver.Event) error {
+		log.Printf("event job.done from %s seq %d: %s", ev.ConnectorID, ev.Seq, ev.Payload)
+		return nil
+	})
+
 	if err := srv.Start(); err != nil {
 		log.Fatal(err)
 	}
@@ -72,6 +80,28 @@ func main() {
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/admin/", srv.AdminHandler())
+	// AdminHandler ไม่มีทางส่ง Notify จึงเพิ่มที่นี่ไว้ลอง (pattern ที่เจาะจงกว่าชนะ /admin/)
+	mux.HandleFunc("POST /admin/connectors/{id}/notify", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Type    string          `json:"type"`
+			Payload json.RawMessage `json:"payload"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&body); err != nil || body.Type == "" {
+			http.Error(w, `body must be {"type": "...", "payload": ...}`, http.StatusBadRequest)
+			return
+		}
+		// payload ที่เป็น JSON string ส่งเป็นข้อความล้วน (ไม่มีเครื่องหมายคำพูด) · อย่างอื่นส่งตามที่ได้มา
+		payload := []byte(body.Payload)
+		var text string
+		if json.Unmarshal(body.Payload, &text) == nil {
+			payload = []byte(text)
+		}
+		if err := srv.Notify(r.Context(), r.PathValue("id"), body.Type, payload); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.Handle("/ui/", uiHandler)
 	web := &http.Server{Addr: *adminAddr, Handler: mux}
 	go func() {
