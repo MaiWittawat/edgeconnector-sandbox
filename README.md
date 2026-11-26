@@ -4,7 +4,7 @@
 
 | ส่วน | คืออะไร |
 |---|---|
-| `center/` | center ตัวอย่าง ใช้แค่ `connectorserver`, `store/open` และ `ui` · มี Call `dnc.check` ที่ต้องมี scope `dnc:read` และ log Event `job.done` (คู่กับ plugin `demo` ใน edgeconnector-plugin) · มีหน้าจัดการที่ `/ui/`, admin HTTP ที่ `/admin/` และ `POST /admin/connectors/{id}/notify` ไว้ส่ง Notify |
+| `center/` | center ตัวอย่าง ใช้แค่ `connectorserver`, `store/open`, `ui` และ `api` · มี Call `dnc.check` ที่ต้องมี scope `dnc:read` และ log Event `job.done` (คู่กับ plugin `demo` ใน edgeconnector-plugin) · มีหน้าจัดการที่ `/ui/`, JSON API ที่ `/ui/api/v1/` (login เดียวกัน), admin HTTP ที่ `/admin/` และ `POST /admin/connectors/{id}/notify` ไว้ส่ง Notify |
 | `machine/` | เครื่องลูกค้าจำลอง (Docker image): โหลด manager จาก registry ตาม channel (ค่าเริ่มต้น `stable`) แล้วตรวจลายเซ็นก่อนใส่ image |
 | `compose.yml` | รันเครื่องลูกค้าจำลองได้สามแบบ (ด้านล่าง) |
 | `scripts/package-plugin.sh` | build plugin แล้วเซ็นลง registry ในเครื่องด้วย key ทิ้ง (แบบ 3) |
@@ -54,6 +54,20 @@ curl -s -XPOST 127.0.0.1:8080/admin/connectors/<plg-id>/requests -d '{"type":"ve
 ```
 
 admin HTTP ที่ `/admin/` ไม่มี login มีไว้ลองในเครื่องเท่านั้น ห้ามเปิดออกเครือข่าย
+
+6. หรือใช้ JSON API `/ui/api/v1/` ซึ่งมีด่านเดียวกับ UI (login, tenant, สิทธิ์, audit) แบบที่ center จริงเปิดให้ระบบอื่นเรียก:
+
+```bash
+A='-u me:secret'; B=127.0.0.1:8080/ui/api/v1
+curl -s $A -XPOST -H 'Content-Type: application/json' $B/managers -d '{"name":"สาขาบางนา"}'   # token ของเครื่องใหม่ (แสดงครั้งเดียว)
+curl -s $A $B/managers                                                       # รายการ manager พร้อมชื่อ สถานะ และ plugin
+curl -s $A -XPOST -H 'Content-Type: application/json' $B/managers/<manager-id>/plugins \
+    -d '{"name":"hello"}'                                                    # ไม่ใส่ version = version ที่แนะนำ (ตาม stable) · ได้ 202 {seq, type}
+curl -s $A $B/managers/<manager-id>/commands/<seq>                           # ผลของคำสั่ง
+curl -s $A $B/managers/<manager-id>/plugins/hello/logs                       # log ล่าสุดของ plugin
+```
+
+คำสั่งที่ส่งไปเครื่อง (install, configure, stop ...) ตอบ `202` ทันทีแล้วไปดูผลที่ `commands/<seq>` · ใส่ header `Idempotency-Key` ให้ส่งซ้ำได้โดยไม่สั่งซ้ำ · error เป็น `{"error":{"code","message"}}`
 
 ## แบบ 2: center ของคุณเอง
 

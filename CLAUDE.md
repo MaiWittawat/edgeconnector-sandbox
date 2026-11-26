@@ -18,7 +18,7 @@ Sibling repos in `..` (one `go.work` at `../go.work` uses this repo, `edgeconnec
 
 | Path | What |
 |---|---|
-| `center/main.go` | example center: `connectorserver` + `store/open` (memstore file in `data/center`) + `ui` with one Basic-auth password, plus `AdminHandler` at `/admin/` for curl. No TLS (`Insecure`). Has one Call `dnc.check` that needs scope `dnc:read`, an Event handler that logs `job.done`, and `POST /admin/connectors/{id}/notify` (AdminHandler has no Notify). These match the `demo` plugin in edgeconnector-plugin. |
+| `center/main.go` | example center: `connectorserver` + `store/open` (memstore file in `data/center`) + `ui` and the JSON API `api` (at `/ui/api/v1/`, sharing one `fleet.Config`) with one Basic-auth password, plus `AdminHandler` at `/admin/` for curl. No TLS (`Insecure`). Has one Call `dnc.check` that needs scope `dnc:read`, an Event handler that logs `job.done`, and `POST /admin/connectors/{id}/notify` (AdminHandler has no Notify). These match the `demo` plugin in edgeconnector-plugin. |
 | `machine/Dockerfile` | the customer machine. It resolves the manager version from `manager/channels/<CHANNEL>.json` when `MANAGER_VERSION` is empty, downloads manifest and archive, checks them with `machine/verify`, then runs as user `edge` with `CC_DATA=/data`, `CC_RUN_DIR=/run/ec`. |
 | `machine/entrypoint.sh` | creates `/data/machine-id` on first start, then `exec manager`. POSIX `sh` (busybox). |
 | `machine/verify/main.go` | stdlib-only check of sha256 and Ed25519 signature over `cc-artifact:<name>:<version>:<os>:<arch>:<sha256>`. It must stay stdlib-only: the image cannot fetch the private edgeconnector module. |

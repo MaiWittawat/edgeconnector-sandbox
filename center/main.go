@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/MaiWittawat/edgeconnector/connectorserver"
+	"github.com/MaiWittawat/edgeconnector/connectorserver/api"
+	"github.com/MaiWittawat/edgeconnector/connectorserver/fleet"
 	"github.com/MaiWittawat/edgeconnector/connectorserver/store"
 	"github.com/MaiWittawat/edgeconnector/connectorserver/store/open"
 	"github.com/MaiWittawat/edgeconnector/connectorserver/ui"
@@ -119,31 +121,40 @@ func main() {
 	srv.Stop(shutdownCtx)
 }
 
-// newUI = ฝังหน้าจัดการ: login ด้วย Basic auth รหัสเดียว เห็น tenant เดียว
+// newUI = ฝังหน้าจัดการที่ /ui/ และ JSON API ที่ /ui/api/v1/: login ด้วย Basic auth รหัสเดียว เห็น tenant เดียว
 // (center จริงใช้ session ของตัวเองใน Authorize แล้วบอก tenant/สิทธิ์ของ user คนนั้น)
+// ทั้งสองใช้ fleet.Config ก้อนเดียว: login, registry และกฎสิทธิ์จึงเหมือนกันเสมอ
 func newUI(srv *connectorserver.Server, password, tenant, registry string) (http.Handler, error) {
 	login := func(r *http.Request) (string, bool) {
 		user, pass, ok := r.BasicAuth()
 		return user, ok && user != "" && subtle.ConstantTimeCompare([]byte(pass), []byte(password)) == 1
 	}
-	h, err := ui.New(srv, ui.Config{
-		BasePath:   "/ui",
+	shared := fleet.Config{
 		ReleaseURL: registry,
-		Authorize: func(r *http.Request) (ui.User, error) {
+		Authorize: func(r *http.Request) (fleet.User, error) {
 			user, ok := login(r)
 			if !ok {
-				return ui.User{}, errors.New("wrong password")
+				return fleet.User{}, errors.New("wrong password")
 			}
-			return ui.User{TenantID: tenant, UserID: user, Name: user, CanManage: true}, nil
+			return fleet.User{TenantID: tenant, UserID: user, Name: user, CanManage: true}, nil
 		},
-	})
+	}
+	pages, err := ui.New(srv, ui.Config{Config: shared, BasePath: "/ui"})
 	if err != nil {
 		return nil, err
 	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	apiHandler, err := api.New(srv, api.Config{Config: shared, BasePath: "/ui"})
+	if err != nil {
+		return nil, err
+	}
+	mux := http.NewServeMux()
+	// ให้ browser ถามรหัสเฉพาะหน้าจัดการ · API ตอบ 401 เป็น JSON ให้โปรแกรมอ่านเอง
+	mux.Handle("/ui/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := login(r); !ok {
-			w.Header().Set("WWW-Authenticate", `Basic realm="sandbox", charset="UTF-8"`) // ให้ browser ถามรหัส
+			w.Header().Set("WWW-Authenticate", `Basic realm="sandbox", charset="UTF-8"`)
 		}
-		h.ServeHTTP(w, r)
-	}), nil
+		pages.ServeHTTP(w, r)
+	}))
+	mux.Handle("/ui/api/", apiHandler) // pattern ยาวกว่าชนะ: /ui/api/… ไม่ผ่านหน้าจัดการ
+	return mux, nil
 }
