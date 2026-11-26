@@ -2,4 +2,20 @@ module github.com/MaiWittawat/edgeconnector-sandbox
 
 go 1.27.1
 
-require github.com/MaiWittawat/edgeconnector v0.0.0-20261125062211-3b20c2e1c68e
+require github.com/MaiWittawat/edgeconnector v0.0.0-20261126095517-d9bf4d1764b8
+
+require (
+	github.com/klauspost/compress v1.20.3 // indirect
+	github.com/xdg-go/scram v1.4.0 // indirect
+	github.com/xdg-go/stringprep v1.0.4 // indirect
+	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.10.0 // indirect
+	golang.org/x/crypto v0.54.0 // indirect
+	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
+	google.golang.org/grpc v1.84.0 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
+)
